@@ -7,9 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- PDF libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.js"></script>
     <!-- Excel library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -329,16 +328,15 @@ async function registerFonts() {
     const bold = await loadFont("fonts/Arimo-Bold.ttf");
     const italic = await loadFont("fonts/Arimo-Italic.ttf");
 
-    const api = window.jspdf.jsPDF.API;
+    // jsPDF 1.5.3 API
+    jsPDF.API.addFileToVFS("Arimo-Regular.ttf", regular);
+    jsPDF.API.addFont("Arimo-Regular.ttf", "Arimo", "normal");
 
-    api.addFileToVFS("Arimo-Regular.ttf", regular);
-    api.addFont("Arimo-Regular.ttf", "Arimo", "normal");
+    jsPDF.API.addFileToVFS("Arimo-Bold.ttf", bold);
+    jsPDF.API.addFont("Arimo-Bold.ttf", "Arimo", "bold");
 
-    api.addFileToVFS("Arimo-Bold.ttf", bold);
-    api.addFont("Arimo-Bold.ttf", "Arimo", "bold");
-
-    api.addFileToVFS("Arimo-Italic.ttf", italic);
-    api.addFont("Arimo-Italic.ttf", "Arimo", "italic");
+    jsPDF.API.addFileToVFS("Arimo-Italic.ttf", italic);
+    jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
 }
 
 
@@ -348,65 +346,36 @@ async function registerFonts() {
 document.getElementById("exportPdfBtn").addEventListener("click", async () => {
     if (!resultsData) return;
 
-    // Зареждаме шрифтовете преди генериране
     await registerFonts();
 
-    const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    const invoice = resultsData.extraction.data;
-
-    // Заглавие
     doc.setFont("Arimo", "bold");
     doc.setFontSize(22);
     doc.text("Фактура", 14, 20);
 
-    // Доставчик / Клиент
     doc.setFont("Arimo", "normal");
     doc.setFontSize(12);
-    doc.text("Доставчик:", 14, 35);
-    doc.text("Клиент:", 110, 35);
+    doc.text("Фактура №: " + resultsData.extraction.data.invoice_number, 14, 30);
 
-    doc.setFontSize(11);
-
-    // Доставчик
-    doc.text(invoice.vendor?.name || "N/A", 14, 42);
-    doc.text(invoice.vendor?.address || "", 14, 48);
-    doc.text("ЕИК: " + (invoice.vendor?.vat_number || "N/A"), 14, 54);
-
-    // Клиент
-    doc.text(invoice.client?.name || "N/A", 110, 42);
-    doc.text(invoice.client?.address || "", 110, 48);
-
-    // Данни за фактурата
-    doc.setFont("Arimo", "bold");
-    doc.setFontSize(12);
-    doc.text("Данни за фактурата:", 14, 70);
-
-    doc.setFont("Arimo", "normal");
-    doc.setFontSize(11);
-    doc.text("Фактура №: " + (invoice.invoice_number || "N/A"), 14, 78);
-    doc.text("Дата: " + (invoice.date || "N/A"), 14, 84);
-    doc.text("Валута: " + (invoice.currency || "N/A"), 14, 90);
-
-    // Таблица с артикули
-    const items = invoice.items?.map((item, index) => [
-        index + 1,
-        item.description || "",
-        item.quantity || "",
-        item.unit_price || "",
-        item.total || "",
-        item.unit || "",
-        item.tax_group || ""
-    ]) || [];
+    // таблица
+    const items = resultsData.extraction.data.items.map((item, i) => [
+        i + 1,
+        item.description,
+        item.quantity,
+        item.unit_price,
+        item.total
+    ]);
 
     doc.autoTable({
-        startY: 105,
-        head: [["№", "Описание", "Количество", "Ед. цена", "Общо", "Мярка", "Дан. група"]],
+        startY: 40,
+        head: [["№", "Описание", "Количество", "Ед. цена", "Общо"]],
         body: items,
-        styles: { font: "Arimo", fontSize: 10 },
-        headStyles: { fillColor: [66, 66, 66], font: "Arimo", fontStyle: "bold" }
+        styles: { font: "Arimo", fontSize: 10 }
     });
+
+    doc.save("invoice.pdf");
+});
 
     // Тотали
     let finalY = doc.lastAutoTable.finalY + 10;
