@@ -65,9 +65,7 @@
                     </button>
                 </div>
 
-                <div id="resultsContent" class="space-y-4">
-                    <!-- Results will be inserted here -->
-                </div>
+                <div id="resultsContent" class="space-y-4"></div>
 
                 <div class="mt-6 flex gap-4">
                     <button id="downloadJsonBtn" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
@@ -93,6 +91,8 @@
     </div>
 
     <script>
+        const API_URL = "https://docai.hoseto.cloud";
+
         let selectedFile = null;
         let resultsData = null;
 
@@ -108,7 +108,6 @@
         const resultsContent = document.getElementById('resultsContent');
         const errorMessage = document.getElementById('errorMessage');
 
-        // Drag & Drop
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('border-blue-500', 'bg-blue-50');
@@ -160,14 +159,13 @@
             formData.append('file', selectedFile);
 
             try {
-                const response = await fetch('/api/v1/documents/upload', {
+                const response = await fetch(`${API_URL}/api/v1/documents/upload`, {
                     method: 'POST',
                     body: formData
                 });
 
                 const data = await response.json();
 
-                // Fixed error handling
                 if (data.status === 'success' && data.extraction && data.extraction.success) {
                     showResults(data);
                 } else {
