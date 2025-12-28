@@ -86,7 +86,7 @@
                     </button>
                     <button id="downloadJsonBtn" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-liejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         JSON
                     </button>
@@ -130,6 +130,7 @@
         const resultsContent = document.getElementById('resultsContent');
         const errorMessage = document.getElementById('errorMessage');
 
+        // Drag & Drop handlers
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('border-blue-500', 'bg-blue-50');
@@ -170,6 +171,7 @@
             selectedFileDiv.classList.remove('hidden');
         }
 
+        // Upload handler
         uploadBtn.addEventListener('click', async () => {
             if (!selectedFile) return;
 
@@ -276,7 +278,27 @@
             errorMessage.textContent = message;
         }
 
-        // PDF Export - Two Column Layout
+        // Cyrillic to Latin transliteration
+        function transliterate(text) {
+            if (!text) return '';
+            
+            const map = {
+                'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ж': 'Zh',
+                'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N',
+                'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
+                'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sht', 'Ъ': 'A', 'Ь': 'Y',
+                'Ю': 'Yu', 'Я': 'Ya',
+                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ж': 'zh',
+                'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n',
+                'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f',
+                'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sht', 'ъ': 'a', 'ь': 'y',
+                'ю': 'yu', 'я': 'ya'
+            };
+            
+            return text.split('').map(char => map[char] || char).join('');
+        }
+
+        // PDF Export with transliteration
         document.getElementById('downloadPdfBtn').addEventListener('click', () => {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -284,70 +306,80 @@
             
             // Header
             doc.setFontSize(24);
-            doc.setFont(undefined, 'bold');
-            doc.text('ФАКТУРА', 105, 20, { align: 'center' });
+            doc.setFont('helvetica', 'bold');
+            doc.text('FAKTURA', 105, 20, { align: 'center' });
             
-            // Two column layout
+            // Subtitle
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`No: ${invoice.invoice_number || 'N/A'}`, 105, 30, { align: 'center' });
+            doc.text(`Date: ${invoice.date || 'N/A'}`, 105, 37, { align: 'center' });
+            
             const leftX = 20;
             const rightX = 110;
-            let y = 40;
+            let y = 50;
             
             // Left column - Vendor
             doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text('ДОСТАВЧИК', leftX, y);
-            doc.setFont(undefined, 'normal');
+            doc.setFont('helvetica', 'bold');
+            doc.text('DOSTAVCHIK:', leftX, y);
+            doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
             y += 7;
-            doc.text(invoice.vendor?.name || 'N/A', leftX, y);
+            
+            const vendorName = transliterate(invoice.vendor?.name || 'N/A');
+            const vendorAddress = transliterate(invoice.vendor?.address || '');
+            
+            doc.text(vendorName, leftX, y, { maxWidth: 80 });
             y += 5;
-            doc.text(invoice.vendor?.address || '', leftX, y, { maxWidth: 80 });
+            doc.text(vendorAddress, leftX, y, { maxWidth: 80 });
             y += 5;
-            doc.text(`ЕИК: ${invoice.vendor?.vat_number || 'N/A'}`, leftX, y);
+            doc.text(`EIK: ${invoice.vendor?.vat_number || 'N/A'}`, leftX, y);
+            if (invoice.vendor?.phone) {
+                y += 5;
+                doc.text(`Tel: ${invoice.vendor.phone}`, leftX, y);
+            }
             
             // Right column - Client
-            y = 40;
+            y = 50;
             doc.setFontSize(12);
-            doc.setFont(undefined, 'bold');
-            doc.text('КЛИЕНТ', rightX, y);
-            doc.setFont(undefined, 'normal');
+            doc.setFont('helvetica', 'bold');
+            doc.text('KLIENT:', rightX, y);
+            doc.setFont('helvetica', 'normal');
             doc.setFontSize(10);
             y += 7;
-            doc.text(invoice.client?.name || 'N/A', rightX, y);
-            y += 5;
-            doc.text(invoice.client?.address || '', rightX, y, { maxWidth: 80 });
             
-            // Invoice details
-            y = 70;
-            doc.setFontSize(10);
-            doc.text(`Номер: ${invoice.invoice_number || 'N/A'}`, leftX, y);
-            doc.text(`Дата: ${invoice.date || 'N/A'}`, rightX, y);
-            y += 7;
-            doc.text(`Валута: ${invoice.currency || 'BGN'}`, leftX, y);
+            const clientName = transliterate(invoice.client?.name || 'N/A');
+            const clientAddress = transliterate(invoice.client?.address || '');
+            
+            doc.text(clientName, rightX, y, { maxWidth: 80 });
+            y += 5;
+            doc.text(clientAddress, rightX, y, { maxWidth: 80 });
             
             // Items table
-            y += 15;
+            y = 90;
             doc.setFontSize(11);
-            doc.setFont(undefined, 'bold');
-            doc.text('АРТИКУЛИ', leftX, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text('ARTIKULI', leftX, y);
             y += 7;
             
             doc.setFontSize(9);
-            doc.text('Описание', leftX, y);
-            doc.text('Кол.', leftX + 100, y);
-            doc.text('Цена', leftX + 120, y);
-            doc.text('Сума', leftX + 145, y);
-            y += 5;
+            doc.text('Description', leftX, y);
+            doc.text('Qty', leftX + 100, y);
+            doc.text('Price', leftX + 120, y);
+            doc.text('Total', leftX + 145, y);
+            y += 2;
             doc.line(leftX, y, 190, y);
             y += 5;
             
-            doc.setFont(undefined, 'normal');
+            doc.setFont('helvetica', 'normal');
             invoice.items?.forEach(item => {
                 if (y > 250) {
                     doc.addPage();
                     y = 20;
                 }
-                doc.text(item.description.substring(0, 50), leftX, y);
+                const desc = transliterate(item.description).substring(0, 50);
+                doc.text(desc, leftX, y);
                 doc.text(String(item.quantity), leftX + 100, y);
                 doc.text(item.unit_price.toFixed(2), leftX + 120, y);
                 doc.text(item.total.toFixed(2), leftX + 145, y);
@@ -358,18 +390,18 @@
             y += 10;
             doc.line(leftX, y, 190, y);
             y += 7;
-            doc.setFont(undefined, 'bold');
-            doc.text(`Без ДДС: ${invoice.totals?.subtotal || 0} ${invoice.currency}`, leftX + 100, y);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Subtotal: ${invoice.totals?.subtotal || 0} ${invoice.currency}`, leftX + 100, y);
             y += 6;
-            doc.text(`ДДС (${invoice.totals?.vat_rate || 0}%): ${invoice.totals?.vat_amount || 0} ${invoice.currency}`, leftX + 100, y);
+            doc.text(`VAT (${invoice.totals?.vat_rate || 0}%): ${invoice.totals?.vat_amount || 0} ${invoice.currency}`, leftX + 100, y);
             y += 6;
             doc.setFontSize(12);
-            doc.text(`ОБЩО: ${invoice.totals?.total || 0} ${invoice.currency}`, leftX + 100, y);
+            doc.text(`TOTAL: ${invoice.totals?.total || 0} ${invoice.currency}`, leftX + 100, y);
             
             // Footer
             doc.setFontSize(8);
-            doc.setFont(undefined, 'italic');
-            doc.text('Документът е обработен автоматично от екипа на hoseto.cloud', 105, 280, { align: 'center' });
+            doc.setFont('helvetica', 'italic');
+            doc.text('Processed automatically by hoseto.cloud team', 105, 280, { align: 'center' });
             
             doc.save(`invoice_${invoice.invoice_number || 'export'}.pdf`);
         });
@@ -379,10 +411,8 @@
             const invoice = resultsData.extraction.data;
             const data = resultsData;
             
-            // Create workbook
             const wb = XLSX.utils.book_new();
             
-            // Sheet 1: Invoice Data
             const wsData = [
                 ['ФАКТУРА'],
                 [''],
@@ -406,12 +436,10 @@
                 ['Описание', 'Количество', 'Единична цена', 'Обща сума']
             ];
             
-            // Add items
             invoice.items?.forEach(item => {
                 wsData.push([item.description, item.quantity, item.unit_price, item.total]);
             });
             
-            // Add totals
             wsData.push(['']);
             wsData.push(['Без ДДС', '', '', invoice.totals?.subtotal || 0]);
             wsData.push([`ДДС (${invoice.totals?.vat_rate || 0}%)`, '', '', invoice.totals?.vat_amount || 0]);
@@ -424,18 +452,9 @@
             wsData.push(['Tokens used', data.extraction.tokens_used?.total || 'N/A']);
             
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            
-            // Set column widths
-            ws['!cols'] = [
-                { wch: 30 },
-                { wch: 15 },
-                { wch: 15 },
-                { wch: 15 }
-            ];
+            ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
             
             XLSX.utils.book_append_sheet(wb, ws, 'Фактура');
-            
-            // Save file
             XLSX.writeFile(wb, `invoice_${invoice.invoice_number || 'export'}.xlsx`);
         });
 
