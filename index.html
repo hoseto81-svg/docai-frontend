@@ -3,514 +3,534 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocAI - Document Processing</title>
+    <title>DocAI - AI-Powered Document Processing</title>
+
+    <!-- Tailwind (CDN) – ок за прототип / демо -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- PDF libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.5.3/jspdf.debug.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.js"></script>
+
     <!-- Excel library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
-        .uploading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .uploading {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
     </style>
 </head>
-
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
 
         <!-- Header -->
-        <div class="text-center mb-12">
+        <header class="text-center mb-10">
             <h1 class="text-5xl font-bold text-gray-800 mb-2">DocAI</h1>
             <p class="text-xl text-gray-600">AI-Powered Document Processing</p>
-        </div>
+        </header>
 
-        <!-- Upload Section -->
-        <div id="uploadSection" class="max-w-2xl mx-auto">
-            <div class="bg-white rounded-2xl shadow-xl p-8">
-                <div class="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-500 transition-colors cursor-pointer" id="dropZone">
-                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                    </svg>
-                    <p class="text-xl text-gray-700 mb-2">Drag & Drop фактура тук</p>
-                    <p class="text-gray-500 mb-4">или</p>
-                    <label for="fileInput" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block transition-colors">
-                        Избери файл
-                    </label>
-                    <input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png">
-                    <p class="text-sm text-gray-500 mt-4">Supported: PDF, JPG, PNG • Max: 10MB</p>
-                </div>
+        <!-- Upload / Processing Section -->
+        <main class="space-y-10">
 
-                <div id="selectedFile" class="mt-4 hidden">
-                    <p class="text-gray-700">Избран файл: <span id="fileName" class="font-semibold"></span></p>
-                    <button id="uploadBtn" class="w-full mt-4 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold">
-                        🚀 Обработи документа
-                    </button>
-                </div>
-            </div>
-        </div>
+            <!-- Upload Section -->
+            <section id="uploadSection" class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <div
+                        id="dropZone"
+                        class="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-500 transition-colors cursor-pointer"
+                    >
+                        <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                            </path>
+                        </svg>
+                        <p class="text-xl text-gray-700 mb-2">Drag &amp; Drop фактура тук</p>
+                        <p class="text-gray-500 mb-4">или</p>
+                        <label
+                            for="fileInput"
+                            class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block transition-colors"
+                        >
+                            Избери файл
+                        </label>
+                        <input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png">
+                        <p class="text-sm text-gray-500 mt-4">
+                            Поддържани: PDF, JPG, PNG • Макс: 10MB
+                        </p>
+                    </div>
 
-        <!-- Processing Section -->
-        <div id="processingSection" class="max-w-2xl mx-auto hidden">
-            <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
-                <div class="uploading">
-                    <svg class="mx-auto h-16 w-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                </div>
-                <p class="text-xl text-gray-700 mt-4">Обработва се документ...</p>
-                <p class="text-gray-500 mt-2">Това може да отнеме 10-15 секунди</p>
-            </div>
-        </div>
-
-        <!-- Results Section -->
-        <div id="resultsSection" class="max-w-4xl mx-auto hidden">
-            <div class="bg-white rounded-2xl shadow-xl p-8">
-
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-3xl font-bold text-green-600">✅ Успешно обработен</h2>
-
-                    <div class="flex gap-2">
-                        <button id="exportPdfBtn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
-                            📄 Изтегли PDF
-                        </button>
-                        <button id="exportExcelBtn" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">
-                            📊 Изтегли Excel
-                        </button>
-                        <button id="newDocBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                            Нов документ
+                    <div id="selectedFile" class="mt-4 hidden">
+                        <p class="text-gray-700">
+                            Избран файл:
+                            <span id="fileName" class="font-semibold"></span>
+                        </p>
+                        <button
+                            id="uploadBtn"
+                            class="w-full mt-4 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold"
+                        >
+                            🚀 Обработи документа
                         </button>
                     </div>
+
+                    <div id="uploadStatus" class="mt-4 text-sm text-gray-500 hidden"></div>
                 </div>
+            </section>
 
-                <div id="resultsContent" class="space-y-4"></div>
+            <!-- Results Section -->
+            <section id="resultSection" class="hidden">
+                <div class="bg-white rounded-2xl shadow-xl p-8">
+                    <div class="flex items-center justify-between mb-6 gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                                <span class="text-2xl">✅</span>
+                            </div>
+                            <div>
+                                <p class="text-lg font-semibold text-gray-800">Успешно обработен</p>
+                                <p id="resultFileName" class="text-sm text-gray-500"></p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <button
+                                id="exportPdfBtn"
+                                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                            >
+                                Изтегли PDF
+                            </button>
+                            <button
+                                id="exportExcelBtn"
+                                class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
+                            >
+                                Изтегли Excel
+                            </button>
+                            <button
+                                id="newDocBtn"
+                                class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm font-semibold"
+                            >
+                                Нов документ
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="mt-6 flex gap-4">
-                    <button id="downloadJsonBtn" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                        📥 Download JSON
-                    </button>
-                    <button id="copyDataBtn" class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
-                        📋 Copy Data
-                    </button>
+                    <!-- Invoice Summary -->
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
+                        <div class="space-y-2">
+                            <h2 class="text-lg font-semibold text-gray-800">Данни за фактура</h2>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-semibold">Фактура №:</span>
+                                <span id="invoiceNumber"></span>
+                            </p>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-semibold">Дата:</span>
+                                <span id="invoiceDate"></span>
+                            </p>
+                        </div>
+                        <div class="space-y-2">
+                            <h2 class="text-lg font-semibold text-gray-800">Стойности</h2>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-semibold">Без ДДС:</span>
+                                <span id="subtotal"></span>
+                            </p>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-semibold">ДДС:</span>
+                                <span id="vat"></span>
+                            </p>
+                            <p class="text-sm text-gray-800">
+                                <span class="font-semibold">Общо:</span>
+                                <span id="total"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Vendor / Client -->
+                    <div class="grid md:grid-cols-2 gap-6 mb-6">
+                        <div class="space-y-1">
+                            <h3 class="text-md font-semibold text-gray-800">Доставчик</h3>
+                            <p id="vendorName" class="text-sm text-gray-700"></p>
+                            <p id="vendorAddress" class="text-sm text-gray-600"></p>
+                            <p id="vendorVat" class="text-sm text-gray-600"></p>
+                        </div>
+                        <div class="space-y-1">
+                            <h3 class="text-md font-semibold text-gray-800">Клиент</h3>
+                            <p id="clientName" class="text-sm text-gray-700"></p>
+                            <p id="clientAddress" class="text-sm text-gray-600"></p>
+                            <p id="clientVat" class="text-sm text-gray-600"></p>
+                        </div>
+                    </div>
+
+                    <!-- Items Table (HTML view only) -->
+                    <div>
+                        <h3 class="text-md font-semibold text-gray-800 mb-3">Артикули</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-3 py-2 border-b border-gray-200">№</th>
+                                        <th class="px-3 py-2 border-b border-gray-200">Описание</th>
+                                        <th class="px-3 py-2 border-b border-gray-200">Количество</th>
+                                        <th class="px-3 py-2 border-b border-gray-200">Ед. цена</th>
+                                        <th class="px-3 py-2 border-b border-gray-200">Общо</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div id="notesSection" class="mt-6 hidden">
+                        <h3 class="text-md font-semibold text-gray-800 mb-1">Бележка</h3>
+                        <p id="invoiceNotes" class="text-sm text-gray-600"></p>
+                    </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <!-- Error Section -->
-        <div id="errorSection" class="max-w-2xl mx-auto hidden">
-            <div class="bg-red-50 border-2 border-red-200 rounded-2xl shadow-xl p-8">
-                <h2 class="text-2xl font-bold text-red-600 mb-4">❌ Грешка</h2>
-                <p id="errorMessage" class="text-gray-700"></p>
-                <button id="retryBtn" class="mt-4 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700">
-                    Опитай отново
-                </button>
-            </div>
-        </div>
-
+        </main>
     </div>
+
+    <!-- Основен JS (Част 3) -->
     <script>
-    const API_URL = "https://docai.hoseto.cloud";
+    // Глобална променлива, ако бекендът не я дефинира – да не гърми
+    if (typeof resultsData === "undefined") {
+        window.resultsData = null;
+    }
+
+    /* ---------------------------------------------------------
+       UI логика за upload (минимална, без бекенд логика)
+    --------------------------------------------------------- */
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const selectedFileDiv = document.getElementById("selectedFile");
+    const fileNameSpan = document.getElementById("fileName");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const uploadStatus = document.getElementById("uploadStatus");
+
+    const resultSection = document.getElementById("resultSection");
+    const uploadSection = document.getElementById("uploadSection");
 
     let selectedFile = null;
-    let resultsData = null;
 
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const selectedFileDiv = document.getElementById('selectedFile');
-    const fileNameSpan = document.getElementById('fileName');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const uploadSection = document.getElementById('uploadSection');
-    const processingSection = document.getElementById('processingSection');
-    const resultsSection = document.getElementById('resultsSection');
-    const errorSection = document.getElementById('errorSection');
-    const resultsContent = document.getElementById('resultsContent');
-    const errorMessage = document.getElementById('errorMessage');
+    dropZone.addEventListener("click", () => fileInput.click());
 
-    // Drag & Drop
-    dropZone.addEventListener('dragover', (e) => {
+    dropZone.addEventListener("dragover", (e) => {
         e.preventDefault();
-        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        dropZone.classList.add("border-blue-500", "bg-blue-50");
     });
 
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
     });
 
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener("drop", (e) => {
         e.preventDefault();
-        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
         const file = e.dataTransfer.files[0];
         handleFileSelect(file);
     });
 
-    fileInput.addEventListener('change', (e) => {
+    fileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
         handleFileSelect(file);
     });
 
     function handleFileSelect(file) {
         if (!file) return;
-
-        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-        if (!validTypes.includes(file.type)) {
-            alert('Моля изберете PDF, JPG или PNG файл');
-            return;
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-            alert('Файлът е твърде голям (макс 10MB)');
-            return;
-        }
-
         selectedFile = file;
         fileNameSpan.textContent = file.name;
-        selectedFileDiv.classList.remove('hidden');
+        selectedFileDiv.classList.remove("hidden");
     }
 
-    uploadBtn.addEventListener('click', async () => {
+    uploadBtn.addEventListener("click", async () => {
         if (!selectedFile) return;
 
-        uploadSection.classList.add('hidden');
-        processingSection.classList.remove('hidden');
-        errorSection.classList.add('hidden');
-
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+        uploadStatus.classList.remove("hidden");
+        uploadStatus.textContent = "Обработване на документа...";
+        uploadStatus.classList.add("uploading");
 
         try {
-            const response = await fetch(`${API_URL}/api/v1/documents/upload`, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success' && data.extraction && data.extraction.success) {
-                showResults(data);
-            } else {
-                const errorMsg = (data.extraction && data.extraction.error) 
-                    ? data.extraction.error 
-                    : 'Грешка при обработка на документа';
-                showError(errorMsg);
+            // Тук включваш реалния си API call към бекенда.
+            // Демонстрационно: използваме resultsData, ако вече е попълнен от бекенда.
+            if (!resultsData || !resultsData.extraction || !resultsData.extraction.data) {
+                uploadStatus.textContent = "Няма налични данни от AI обработка.";
+                uploadStatus.classList.remove("uploading");
+                return;
             }
-        } catch (error) {
-            showError('Грешка при свързване със сървъра: ' + error.message);
+
+            populateInvoiceUI(resultsData.extraction.data, resultsData.file_name);
+
+            uploadSection.classList.add("hidden");
+            resultSection.classList.remove("hidden");
+            uploadStatus.classList.add("hidden");
+            uploadStatus.classList.remove("uploading");
+        } catch (err) {
+            console.error(err);
+            uploadStatus.textContent = "Възникна грешка при обработката.";
+            uploadStatus.classList.remove("uploading");
         }
     });
 
-    function showResults(data) {
-        processingSection.classList.add('hidden');
-        resultsSection.classList.remove('hidden');
-        resultsData = data;
-
-        const invoice = data.extraction.data;
-
-        resultsContent.innerHTML = `
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Фактура №</p>
-                    <p class="text-xl font-bold">${invoice.invoice_number || 'N/A'}</p>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Дата</p>
-                    <p class="text-xl font-bold">${invoice.date || 'N/A'}</p>
-                </div>
-            </div>
-
-            <div class="bg-blue-50 p-4 rounded-lg">
-                <p class="text-sm text-gray-600 font-semibold mb-2">Доставчик</p>
-                <p class="font-bold">${invoice.vendor?.name || 'N/A'}</p>
-                <p class="text-sm">${invoice.vendor?.address || ''}</p>
-                <p class="text-sm">ЕИК: ${invoice.vendor?.vat_number || 'N/A'}</p>
-            </div>
-
-            <div class="bg-green-50 p-4 rounded-lg">
-                <p class="text-sm text-gray-600 font-semibold mb-2">Клиент</p>
-                <p class="font-bold">${invoice.client?.name || 'N/A'}</p>
-                <p class="text-sm">${invoice.client?.address || ''}</p>
-            </div>
-
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <p class="text-sm text-gray-600 font-semibold mb-2">Артикули (${invoice.items?.length || 0})</p>
-                <div class="space-y-2 max-h-40 overflow-y-auto">
-                    ${invoice.items?.map((item, index) => `
-                        <div class="text-sm border-b pb-2">
-                            <p class="font-semibold">${index + 1}. ${item.description}</p>
-                            <p class="text-gray-600">
-                                ${item.quantity} x ${item.unit_price} = ${item.total} ${invoice.currency}
-                            </p>
-                        </div>
-                    `).join('') || '<p class="text-gray-500">Няма артикули</p>'}
-                </div>
-            </div>
-
-            <div class="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="text-sm text-gray-600">Без ДДС</p>
-                        <p class="text-lg">${invoice.totals?.subtotal || 0} ${invoice.currency}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">ДДС (${invoice.totals?.vat_rate || 0}%)</p>
-                        <p class="text-lg">${invoice.totals?.vat_amount || 0} ${invoice.currency}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600 font-semibold">ОБЩО</p>
-                        <p class="text-3xl font-bold text-green-600">${invoice.totals?.total || 0} ${invoice.currency}</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
-                <p>⏱️ Processing time: ${data.processing_time_seconds}s</p>
-                <p>💰 API cost: $${data.extraction.cost_usd?.total?.toFixed(4) || 'N/A'}</p>
-                <p>🤖 Model: ${data.extraction.model}</p>
-            </div>
-        `;
-    }
-
-    function showError(message) {
-        processingSection.classList.add('hidden');
-        errorSection.classList.remove('hidden');
-        errorMessage.textContent = message;
-    }
-
-    document.getElementById('newDocBtn').addEventListener('click', reset);
-    document.getElementById('retryBtn').addEventListener('click', reset);
-
-    document.getElementById('downloadJsonBtn').addEventListener('click', () => {
-        const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `invoice_${resultsData.extraction.data.invoice_number || 'result'}.json`;
-        a.click();
-    });
-
-    document.getElementById('copyDataBtn').addEventListener('click', () => {
-        navigator.clipboard.writeText(JSON.stringify(resultsData.extraction.data, null, 2));
-        alert('Данните са копирани!');
-    });
-
-    function reset() {
+    document.getElementById("newDocBtn").addEventListener("click", () => {
+        // Reset UI за нов документ
         selectedFile = null;
-        fileInput.value = '';
-        selectedFileDiv.classList.add('hidden');
-        uploadSection.classList.remove('hidden');
-        processingSection.classList.add('hidden');
-        resultsSection.classList.add('hidden');
-        errorSection.classList.add('hidden');
-    }
-</script>
-<script>
-/* ---------------------------------------------------------
-   Зареждане на локални Arimo шрифтове (Arial-compatible)
---------------------------------------------------------- */
-
-// Превръща .ttf файл → Base64 → готов за jsPDF
-async function loadFont(url) {
-    const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-
-    return btoa(binary);
-}
-
-// Регистрира трите шрифта в jsPDF
-async function registerFonts() {
-    const regular = await loadFont("fonts/Arimo-Regular.ttf");
-    const bold = await loadFont("fonts/Arimo-Bold.ttf");
-    const italic = await loadFont("fonts/Arimo-Italic.ttf");
-
-    // jsPDF 1.5.3 API
-    jsPDF.API.addFileToVFS("Arimo-Regular.ttf", regular);
-    jsPDF.API.addFont("Arimo-Regular.ttf", "Arimo", "normal");
-
-    jsPDF.API.addFileToVFS("Arimo-Bold.ttf", bold);
-    jsPDF.API.addFont("Arimo-Bold.ttf", "Arimo", "bold");
-
-    jsPDF.API.addFileToVFS("Arimo-Italic.ttf", italic);
-    jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
-}
-
-<script>
-/* ---------------------------------------------------------
-   Зареждане на локални Arimo шрифтове (Regular, Bold, Italic)
---------------------------------------------------------- */
-
-async function loadFont(url) {
-    const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-
-    return btoa(binary);
-}
-
-async function registerFonts() {
-    const regular = await loadFont("fonts/Arimo-Regular.ttf");
-    const bold = await loadFont("fonts/Arimo-Bold.ttf");
-    const italic = await loadFont("fonts/Arimo-Italic.ttf");
-
-    jsPDF.API.addFileToVFS("Arimo-Regular.ttf", regular);
-    jsPDF.API.addFont("Arimo-Regular.ttf", "Arimo", "normal");
-
-    jsPDF.API.addFileToVFS("Arimo-Bold.ttf", bold);
-    jsPDF.API.addFont("Arimo-Bold.ttf", "Arimo", "bold");
-
-    jsPDF.API.addFileToVFS("Arimo-Italic.ttf", italic);
-    jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
-}
-
-/* ---------------------------------------------------------
-   📄 EXPORT PDF — ОФИЦИАЛНА ФАКТУРА
---------------------------------------------------------- */
-
-document.getElementById("exportPdfBtn").addEventListener("click", async () => {
-    if (!resultsData) {
-        alert("Няма данни за PDF.");
-        return;
-    }
-
-    await registerFonts();
-
-    const invoice = resultsData.extraction.data;
-    const doc = new jsPDF();
-
-    /* Заглавие */
-    doc.setFont("Arimo", "bold");
-    doc.setFontSize(22);
-    doc.text("Фактура", 14, 20);
-
-    /* Основни данни */
-    doc.setFont("Arimo", "normal");
-    doc.setFontSize(12);
-
-    doc.text("Фактура №: " + (invoice.invoice_number || "N/A"), 14, 35);
-    doc.text("Дата: " + (invoice.date || "N/A"), 14, 42);
-
-    /* Доставчик */
-    doc.setFont("Arimo", "bold");
-    doc.text("Доставчик:", 14, 55);
-
-    doc.setFont("Arimo", "normal");
-    doc.text(invoice.vendor?.name || "", 14, 62);
-    doc.text(invoice.vendor?.address || "", 14, 68);
-    doc.text("ЕИК: " + (invoice.vendor?.vat_number || ""), 14, 74);
-
-    /* Клиент */
-    doc.setFont("Arimo", "bold");
-    doc.text("Клиент:", 110, 55);
-
-    doc.setFont("Arimo", "normal");
-    doc.text(invoice.client?.name || "", 110, 62);
-    doc.text(invoice.client?.address || "", 110, 68);
-    doc.text("ЕИК: " + (invoice.client?.vat_number || ""), 110, 74);
-
-    /* Таблица с артикули */
-    const items = (invoice.items || []).map((item, index) => [
-        index + 1,
-        item.description || "",
-        item.quantity || "",
-        item.unit_price || "",
-        item.total || ""
-    ]);
-
-    doc.autoTable({
-        startY: 90,
-        head: [["№", "Описание", "Количество", "Ед. цена", "Общо"]],
-        body: items,
-        styles: { font: "Arimo", fontSize: 10 },
-        headStyles: { fillColor: [66, 66, 66], textColor: 255, fontStyle: "bold" }
+        fileInput.value = "";
+        fileNameSpan.textContent = "";
+        selectedFileDiv.classList.add("hidden");
+        resultSection.classList.add("hidden");
+        uploadSection.classList.remove("hidden");
     });
 
-    /* Обобщение */
-    let finalY = doc.autoTable.previous.finalY + 10;
+    function populateInvoiceUI(invoice, fileName) {
+        document.getElementById("resultFileName").textContent = fileName || "";
 
-    doc.setFont("Arimo", "bold");
-    doc.text("Обобщение:", 14, finalY);
+        document.getElementById("invoiceNumber").textContent = invoice.invoice_number || "";
+        document.getElementById("invoiceDate").textContent = invoice.date || "";
 
-    doc.setFont("Arimo", "normal");
-    doc.text("Без ДДС: " + invoice.totals?.subtotal + " " + invoice.currency, 14, finalY + 8);
-    doc.text("ДДС (" + invoice.totals?.vat_rate + "%): " + invoice.totals?.vat_amount + " " + invoice.currency, 14, finalY + 16);
-    doc.text("Общо: " + invoice.totals?.total + " " + invoice.currency, 14, finalY + 24);
+        if (invoice.totals) {
+            document.getElementById("subtotal").textContent =
+                (invoice.totals.subtotal ?? "") + " " + (invoice.currency || "BGN");
+            document.getElementById("vat").textContent =
+                (invoice.totals.vat_amount ?? "") + " " + (invoice.currency || "BGN");
+            document.getElementById("total").textContent =
+                (invoice.totals.total ?? "") + " " + (invoice.currency || "BGN");
+        }
 
-    /* Footer */
-    doc.setFont("Arimo", "italic");
-    doc.setFontSize(10);
-    doc.setTextColor(120);
-    doc.text("Документът е обработен автоматично от hoseto.cloud", 14, 285);
+        if (invoice.vendor) {
+            document.getElementById("vendorName").textContent = invoice.vendor.name || "";
+            document.getElementById("vendorAddress").textContent = invoice.vendor.address || "";
+            document.getElementById("vendorVat").textContent = invoice.vendor.vat_number
+                ? "ЕИК: " + invoice.vendor.vat_number
+                : "";
+        }
 
-    doc.save(`faktura_${invoice.invoice_number || "document"}.pdf`);
-});
+        if (invoice.client) {
+            document.getElementById("clientName").textContent = invoice.client.name || "";
+            document.getElementById("clientAddress").textContent = invoice.client.address || "";
+            document.getElementById("clientVat").textContent = invoice.client.vat_number
+                ? "ЕИК: " + invoice.client.vat_number
+                : "";
+        }
 
-/* ---------------------------------------------------------
-   📊 EXPORT EXCEL — ПЪЛЕН ФОРМАТ
---------------------------------------------------------- */
+        const itemsBody = document.getElementById("itemsTableBody");
+        itemsBody.innerHTML = "";
+        (invoice.items || []).forEach((item, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td class="px-3 py-2 border-b border-gray-200">${idx + 1}</td>
+                <td class="px-3 py-2 border-b border-gray-200">${item.description || ""}</td>
+                <td class="px-3 py-2 border-b border-gray-200">${item.quantity ?? ""}</td>
+                <td class="px-3 py-2 border-b border-gray-200">${item.unit_price ?? ""}</td>
+                <td class="px-3 py-2 border-b border-gray-200">${item.total ?? ""}</td>
+            `;
+            itemsBody.appendChild(tr);
+        });
 
-document.getElementById("exportExcelBtn").addEventListener("click", () => {
-    if (!resultsData) {
-        alert("Няма данни за Excel.");
-        return;
+        if (invoice.notes) {
+            document.getElementById("invoiceNotes").textContent = invoice.notes;
+            document.getElementById("notesSection").classList.remove("hidden");
+        } else {
+            document.getElementById("notesSection").classList.add("hidden");
+        }
     }
 
-    const invoice = resultsData.extraction.data;
-    const sheet = [];
+    /* ---------------------------------------------------------
+       Зареждане на локални Arimo шрифтове за jsPDF 1.5.3
+    --------------------------------------------------------- */
+    async function loadFont(url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error("Неуспешно зареждане на шрифт: " + url);
+        }
 
-    sheet.push(["Фактура"]);
-    sheet.push([]);
-    sheet.push(["Фактура №", invoice.invoice_number || ""]);
-    sheet.push(["Дата", invoice.date || ""]);
-    sheet.push(["Валута", invoice.currency || ""]);
-    sheet.push([]);
+        const buffer = await response.arrayBuffer();
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
 
-    sheet.push(["Доставчик"]);
-    sheet.push(["Име", invoice.vendor?.name || ""]);
-    sheet.push(["Адрес", invoice.vendor?.address || ""]);
-    sheet.push(["ЕИК", invoice.vendor?.vat_number || ""]);
-    sheet.push([]);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
 
-    sheet.push(["Клиент"]);
-    sheet.push(["Име", invoice.client?.name || ""]);
-    sheet.push(["Адрес", invoice.client?.address || ""]);
-    sheet.push(["ЕИК", invoice.client?.vat_number || ""]);
-    sheet.push([]);
+        return btoa(binary);
+    }
 
-    sheet.push(["Артикули"]);
-    sheet.push(["№", "Описание", "Количество", "Ед. цена", "Общо"]);
+    async function registerFonts() {
+        const regular = await loadFont("fonts/Arimo-Regular.ttf");
+        const bold = await loadFont("fonts/Arimo-Bold.ttf");
+        const italic = await loadFont("fonts/Arimo-Italic.ttf");
 
-    (invoice.items || []).forEach((item, index) => {
-        sheet.push([
+        jsPDF.API.addFileToVFS("Arimo-Regular.ttf", regular);
+        jsPDF.API.addFont("Arimo-Regular.ttf", "Arimo", "normal");
+
+        jsPDF.API.addFileToVFS("Arimo-Bold.ttf", bold);
+        jsPDF.API.addFont("Arimo-Bold.ttf", "Arimo", "bold");
+
+        jsPDF.API.addFileToVFS("Arimo-Italic.ttf", italic);
+        jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
+    }
+
+    /* ---------------------------------------------------------
+       EXPORT PDF – официална фактура
+    --------------------------------------------------------- */
+    document.getElementById("exportPdfBtn").addEventListener("click", async () => {
+        if (!resultsData || !resultsData.extraction || !resultsData.extraction.data) {
+            alert("Няма данни за PDF.");
+            return;
+        }
+
+        const invoice = resultsData.extraction.data;
+
+        try {
+            await registerFonts();
+        } catch (e) {
+            console.error("Грешка при зареждане на шрифтовете:", e);
+            alert("Грешка при зареждане на шрифтовете за PDF.");
+            return;
+        }
+
+        const doc = new jsPDF();
+
+        // Заглавие
+        doc.setFont("Arimo", "bold");
+        doc.setFontSize(22);
+        doc.text("Фактура", 14, 20);
+
+        // Основни данни
+        doc.setFont("Arimo", "normal");
+        doc.setFontSize(12);
+        doc.text("Фактура №: " + (invoice.invoice_number || "N/A"), 14, 35);
+        doc.text("Дата: " + (invoice.date || "N/A"), 14, 42);
+
+        // Доставчик
+        doc.setFont("Arimo", "bold");
+        doc.text("Доставчик:", 14, 55);
+
+        doc.setFont("Arimo", "normal");
+        doc.text(invoice.vendor?.name || "", 14, 62);
+        doc.text(invoice.vendor?.address || "", 14, 68);
+        if (invoice.vendor?.vat_number) {
+            doc.text("ЕИК: " + invoice.vendor.vat_number, 14, 74);
+        }
+
+        // Клиент
+        doc.setFont("Arimo", "bold");
+        doc.text("Клиент:", 110, 55);
+
+        doc.setFont("Arimo", "normal");
+        doc.text(invoice.client?.name || "", 110, 62);
+        doc.text(invoice.client?.address || "", 110, 68);
+        if (invoice.client?.vat_number) {
+            doc.text("ЕИК: " + invoice.client.vat_number, 110, 74);
+        }
+
+        // Таблица с артикули
+        const items = (invoice.items || []).map((item, index) => [
             index + 1,
             item.description || "",
-            item.quantity || "",
-            item.unit_price || "",
-            item.total || ""
+            item.quantity ?? "",
+            item.unit_price ?? "",
+            item.total ?? ""
         ]);
+
+        doc.autoTable({
+            startY: 90,
+            head: [["№", "Описание", "Количество", "Ед. цена", "Общо"]],
+            body: items,
+            styles: { font: "Arimo", fontSize: 10 },
+            headStyles: { fillColor: [66, 66, 66], textColor: 255, fontStyle: "bold" }
+        });
+
+        // Обобщение
+        let finalY = doc.autoTable.previous ? doc.autoTable.previous.finalY + 10 : 90;
+
+        doc.setFont("Arimo", "bold");
+        doc.text("Обобщение:", 14, finalY);
+
+        doc.setFont("Arimo", "normal");
+        const currency = invoice.currency || "BGN";
+
+        if (invoice.totals) {
+            doc.text("Без ДДС: " + (invoice.totals.subtotal ?? "") + " " + currency, 14, finalY + 8);
+            doc.text("ДДС (" + (invoice.totals.vat_rate ?? "") + "%): " +
+                     (invoice.totals.vat_amount ?? "") + " " + currency,
+                     14, finalY + 16);
+            doc.text("Общо: " + (invoice.totals.total ?? "") + " " + currency, 14, finalY + 24);
+        }
+
+        // Notes (ако има)
+        if (invoice.notes) {
+            doc.setFont("Arimo", "italic");
+            doc.setFontSize(11);
+            doc.text("Бележка: " + invoice.notes, 14, finalY + 36);
+        }
+
+        // Footer
+        doc.setFont("Arimo", "italic");
+        doc.setFontSize(10);
+        doc.setTextColor(120);
+        doc.text("Документът е обработен автоматично от hoseto.cloud", 14, 285);
+
+        const filename = "faktura_" + (invoice.invoice_number || "document") + ".pdf";
+        doc.save(filename);
     });
 
-    sheet.push([]);
-    sheet.push(["Обобщение"]);
-    sheet.push(["Без ДДС", invoice.totals?.subtotal || ""]);
-    sheet.push(["ДДС", invoice.totals?.vat_amount || ""]);
-    sheet.push(["Общо", invoice.totals?.total || ""]);
+    /* ---------------------------------------------------------
+       EXPORT EXCEL – пълен формат
+    --------------------------------------------------------- */
+    document.getElementById("exportExcelBtn").addEventListener("click", () => {
+        if (!resultsData || !resultsData.extraction || !resultsData.extraction.data) {
+            alert("Няма данни за Excel.");
+            return;
+        }
 
-    const worksheet = XLSX.utils.aoa_to_sheet(sheet);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Invoice");
+        const invoice = resultsData.extraction.data;
+        const sheet = [];
 
-    XLSX.writeFile(workbook, `faktura_${invoice.invoice_number || "document"}.xlsx`);
-});
-</script>
+        sheet.push(["Фактура"]);
+        sheet.push([]);
+        sheet.push(["Фактура №", invoice.invoice_number || ""]);
+        sheet.push(["Дата", invoice.date || ""]);
+        sheet.push(["Валута", invoice.currency || ""]);
+        sheet.push([]);
+
+        sheet.push(["Доставчик"]);
+        sheet.push(["Име", invoice.vendor?.name || ""]);
+        sheet.push(["Адрес", invoice.vendor?.address || ""]);
+        sheet.push(["ЕИК", invoice.vendor?.vat_number || ""]);
+        sheet.push([]);
+
+        sheet.push(["Клиент"]);
+        sheet.push(["Име", invoice.client?.name || ""]);
+        sheet.push(["Адрес", invoice.client?.address || ""]);
+        sheet.push(["ЕИК", invoice.client?.vat_number || ""]);
+        sheet.push([]);
+
+        sheet.push(["Артикули"]);
+        sheet.push(["№", "Описание", "Количество", "Ед. цена", "Общо"]);
+
+        (invoice.items || []).forEach((item, index) => {
+            sheet.push([
+                index + 1,
+                item.description || "",
+                item.quantity ?? "",
+                item.unit_price ?? "",
+                item.total ?? ""
+            ]);
+        });
+
+        sheet.push([]);
+        sheet.push(["Обобщение"]);
+        if (invoice.totals) {
+            sheet.push(["Без ДДС", invoice.totals.subtotal ?? ""]);
+            sheet.push(["ДДС", invoice.totals.vat_amount ?? ""]);
+            sheet.push(["Общо", invoice.totals.total ?? ""]);
+        }
+
+        const worksheet = XLSX.utils.aoa_to_sheet(sheet);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Invoice");
+
+        const filename = "faktura_" + (invoice.invoice_number || "document") + ".xlsx";
+        XLSX.writeFile(workbook, filename);
+    });
+    </script>
 </body>
 </html>
