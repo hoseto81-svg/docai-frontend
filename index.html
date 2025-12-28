@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DocAI - Document Processing</title>
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PDF libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- Excel library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <style>
         .uploading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
+
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
+
         <!-- Header -->
         <div class="text-center mb-12">
             <h1 class="text-5xl font-bold text-gray-800 mb-2">DocAI</h1>
@@ -58,11 +68,21 @@
         <!-- Results Section -->
         <div id="resultsSection" class="max-w-4xl mx-auto hidden">
             <div class="bg-white rounded-2xl shadow-xl p-8">
+
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-3xl font-bold text-green-600">✅ Успешно обработен</h2>
-                    <button id="newDocBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                        Нов документ
-                    </button>
+
+                    <div class="flex gap-2">
+                        <button id="exportPdfBtn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                            📄 Export PDF
+                        </button>
+                        <button id="exportExcelBtn" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800">
+                            📊 Export Excel
+                        </button>
+                        <button id="newDocBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Нов документ
+                        </button>
+                    </div>
                 </div>
 
                 <div id="resultsContent" class="space-y-4"></div>
@@ -88,198 +108,354 @@
                 </button>
             </div>
         </div>
+
     </div>
-
     <script>
-        const API_URL = "https://docai.hoseto.cloud";
+    const API_URL = "https://docai.hoseto.cloud";
 
-        let selectedFile = null;
-        let resultsData = null;
+    let selectedFile = null;
+    let resultsData = null;
 
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const selectedFileDiv = document.getElementById('selectedFile');
-        const fileNameSpan = document.getElementById('fileName');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const uploadSection = document.getElementById('uploadSection');
-        const processingSection = document.getElementById('processingSection');
-        const resultsSection = document.getElementById('resultsSection');
-        const errorSection = document.getElementById('errorSection');
-        const resultsContent = document.getElementById('resultsContent');
-        const errorMessage = document.getElementById('errorMessage');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const selectedFileDiv = document.getElementById('selectedFile');
+    const fileNameSpan = document.getElementById('fileName');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadSection = document.getElementById('uploadSection');
+    const processingSection = document.getElementById('processingSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const errorSection = document.getElementById('errorSection');
+    const resultsContent = document.getElementById('resultsContent');
+    const errorMessage = document.getElementById('errorMessage');
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('border-blue-500', 'bg-blue-50');
-        });
+    // Drag & Drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+    });
 
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-        });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    });
 
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-            const file = e.dataTransfer.files[0];
-            handleFileSelect(file);
-        });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        const file = e.dataTransfer.files[0];
+        handleFileSelect(file);
+    });
 
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            handleFileSelect(file);
-        });
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        handleFileSelect(file);
+    });
 
-        function handleFileSelect(file) {
-            if (!file) return;
+    function handleFileSelect(file) {
+        if (!file) return;
 
-            const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-            if (!validTypes.includes(file.type)) {
-                alert('Моля изберете PDF, JPG или PNG файл');
-                return;
-            }
-
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Файлът е твърде голям (макс 10MB)');
-                return;
-            }
-
-            selectedFile = file;
-            fileNameSpan.textContent = file.name;
-            selectedFileDiv.classList.remove('hidden');
+        const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+        if (!validTypes.includes(file.type)) {
+            alert('Моля изберете PDF, JPG или PNG файл');
+            return;
         }
 
-        uploadBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Файлът е твърде голям (макс 10MB)');
+            return;
+        }
 
-            uploadSection.classList.add('hidden');
-            processingSection.classList.remove('hidden');
-            errorSection.classList.add('hidden');
+        selectedFile = file;
+        fileNameSpan.textContent = file.name;
+        selectedFileDiv.classList.remove('hidden');
+    }
 
-            const formData = new FormData();
-            formData.append('file', selectedFile);
+    uploadBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
 
-            try {
-                const response = await fetch(`${API_URL}/api/v1/documents/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
+        uploadSection.classList.add('hidden');
+        processingSection.classList.remove('hidden');
+        errorSection.classList.add('hidden');
 
-                const data = await response.json();
+        const formData = new FormData();
+        formData.append('file', selectedFile);
 
-                if (data.status === 'success' && data.extraction && data.extraction.success) {
-                    showResults(data);
-                } else {
-                    const errorMsg = (data.extraction && data.extraction.error) 
-                        ? data.extraction.error 
-                        : 'Грешка при обработка на документа';
-                    showError(errorMsg);
-                }
-            } catch (error) {
-                showError('Грешка при свързване със сървъра: ' + error.message);
+        try {
+            const response = await fetch(`${API_URL}/api/v1/documents/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'success' && data.extraction && data.extraction.success) {
+                showResults(data);
+            } else {
+                const errorMsg = (data.extraction && data.extraction.error) 
+                    ? data.extraction.error 
+                    : 'Грешка при обработка на документа';
+                showError(errorMsg);
             }
-        });
+        } catch (error) {
+            showError('Грешка при свързване със сървъра: ' + error.message);
+        }
+    });
 
-        function showResults(data) {
-            processingSection.classList.add('hidden');
-            resultsSection.classList.remove('hidden');
-            resultsData = data;
+    function showResults(data) {
+        processingSection.classList.add('hidden');
+        resultsSection.classList.remove('hidden');
+        resultsData = data;
 
-            const invoice = data.extraction.data;
+        const invoice = data.extraction.data;
 
-            resultsContent.innerHTML = `
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-600">Фактура №</p>
-                        <p class="text-xl font-bold">${invoice.invoice_number || 'N/A'}</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <p class="text-sm text-gray-600">Дата</p>
-                        <p class="text-xl font-bold">${invoice.date || 'N/A'}</p>
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 font-semibold mb-2">Доставчик</p>
-                    <p class="font-bold">${invoice.vendor?.name || 'N/A'}</p>
-                    <p class="text-sm">${invoice.vendor?.address || ''}</p>
-                    <p class="text-sm">ЕИК: ${invoice.vendor?.vat_number || 'N/A'}</p>
-                </div>
-
-                <div class="bg-green-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 font-semibold mb-2">Клиент</p>
-                    <p class="font-bold">${invoice.client?.name || 'N/A'}</p>
-                    <p class="text-sm">${invoice.client?.address || ''}</p>
-                </div>
-
+        resultsContent.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
                 <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600 font-semibold mb-2">Артикули (${invoice.items?.length || 0})</p>
-                    <div class="space-y-2 max-h-40 overflow-y-auto">
-                        ${invoice.items?.map(item => `
-                            <div class="text-sm border-b pb-2">
-                                <p class="font-semibold">${item.description}</p>
-                                <p class="text-gray-600">${item.quantity} x ${item.unit_price} = ${item.total} ${invoice.currency}</p>
-                            </div>
-                        `).join('') || '<p class="text-gray-500">Няма артикули</p>'}
+                    <p class="text-sm text-gray-600">Фактура №</p>
+                    <p class="text-xl font-bold">${invoice.invoice_number || 'N/A'}</p>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Дата</p>
+                    <p class="text-xl font-bold">${invoice.date || 'N/A'}</p>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 font-semibold mb-2">Доставчик</p>
+                <p class="font-bold">${invoice.vendor?.name || 'N/A'}</p>
+                <p class="text-sm">${invoice.vendor?.address || ''}</p>
+                <p class="text-sm">ЕИК: ${invoice.vendor?.vat_number || 'N/A'}</p>
+            </div>
+
+            <div class="bg-green-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 font-semibold mb-2">Клиент</p>
+                <p class="font-bold">${invoice.client?.name || 'N/A'}</p>
+                <p class="text-sm">${invoice.client?.address || ''}</p>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-600 font-semibold mb-2">Артикули (${invoice.items?.length || 0})</p>
+                <div class="space-y-2 max-h-40 overflow-y-auto">
+                    ${invoice.items?.map((item, index) => `
+                        <div class="text-sm border-b pb-2">
+                            <p class="font-semibold">${index + 1}. ${item.description}</p>
+                            <p class="text-gray-600">
+                                ${item.quantity} x ${item.unit_price} = ${item.total} ${invoice.currency}
+                            </p>
+                        </div>
+                    `).join('') || '<p class="text-gray-500">Няма артикули</p>'}
+                </div>
+            </div>
+
+            <div class="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600">Без ДДС</p>
+                        <p class="text-lg">${invoice.totals?.subtotal || 0} ${invoice.currency}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">ДДС (${invoice.totals?.vat_rate || 0}%)</p>
+                        <p class="text-lg">${invoice.totals?.vat_amount || 0} ${invoice.currency}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-semibold">ОБЩО</p>
+                        <p class="text-3xl font-bold text-green-600">${invoice.totals?.total || 0} ${invoice.currency}</p>
                     </div>
                 </div>
+            </div>
 
-                <div class="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-sm text-gray-600">Без ДДС</p>
-                            <p class="text-lg">${invoice.totals?.subtotal || 0} ${invoice.currency}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600">ДДС (${invoice.totals?.vat_rate || 0}%)</p>
-                            <p class="text-lg">${invoice.totals?.vat_amount || 0} ${invoice.currency}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-600 font-semibold">ОБЩО</p>
-                            <p class="text-3xl font-bold text-green-600">${invoice.totals?.total || 0} ${invoice.currency}</p>
-                        </div>
-                    </div>
-                </div>
+            <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
+                <p>⏱️ Processing time: ${data.processing_time_seconds}s</p>
+                <p>💰 API cost: $${data.extraction.cost_usd?.total?.toFixed(4) || 'N/A'}</p>
+                <p>🤖 Model: ${data.extraction.model}</p>
+            </div>
+        `;
+    }
 
-                <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
-                    <p>⏱️ Processing time: ${data.processing_time_seconds}s</p>
-                    <p>💰 API cost: $${data.extraction.cost_usd?.total?.toFixed(4) || 'N/A'}</p>
-                    <p>🤖 Model: ${data.extraction.model}</p>
-                </div>
-            `;
-        }
+    function showError(message) {
+        processingSection.classList.add('hidden');
+        errorSection.classList.remove('hidden');
+        errorMessage.textContent = message;
+    }
 
-        function showError(message) {
-            processingSection.classList.add('hidden');
-            errorSection.classList.remove('hidden');
-            errorMessage.textContent = message;
-        }
+    document.getElementById('newDocBtn').addEventListener('click', reset);
+    document.getElementById('retryBtn').addEventListener('click', reset);
 
-        document.getElementById('newDocBtn').addEventListener('click', reset);
-        document.getElementById('retryBtn').addEventListener('click', reset);
+    document.getElementById('downloadJsonBtn').addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice_${resultsData.extraction.data.invoice_number || 'result'}.json`;
+        a.click();
+    });
 
-        document.getElementById('downloadJsonBtn').addEventListener('click', () => {
-            const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `invoice_${resultsData.extraction.data.invoice_number || 'result'}.json`;
-            a.click();
-        });
+    document.getElementById('copyDataBtn').addEventListener('click', () => {
+        navigator.clipboard.writeText(JSON.stringify(resultsData.extraction.data, null, 2));
+        alert('Данните са копирани!');
+    });
 
-        document.getElementById('copyDataBtn').addEventListener('click', () => {
-            navigator.clipboard.writeText(JSON.stringify(resultsData.extraction.data, null, 2));
-            alert('Данните са копирани!');
-        });
+    function reset() {
+        selectedFile = null;
+        fileInput.value = '';
+        selectedFileDiv.classList.add('hidden');
+        uploadSection.classList.remove('hidden');
+        processingSection.classList.add('hidden');
+        resultsSection.classList.add('hidden');
+        errorSection.classList.add('hidden');
+    }
+</script>
+<script>
+/* ---------------------------------------------------------
+   📄 EXPORT PDF — ОФИЦИАЛНА ФАКТУРА (двуколонен layout)
+--------------------------------------------------------- */
+document.getElementById("exportPdfBtn").addEventListener("click", () => {
+    if (!resultsData) return;
 
-        function reset() {
-            selectedFile = null;
-            fileInput.value = '';
-            selectedFileDiv.classList.add('hidden');
-            uploadSection.classList.remove('hidden');
-            processingSection.classList.add('hidden');
-            resultsSection.classList.add('hidden');
-            errorSection.classList.add('hidden');
-        }
-    </script>
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const invoice = resultsData.extraction.data;
+
+    // Заглавие
+    doc.setFontSize(22);
+    doc.text("Фактура", 14, 20);
+
+    // Доставчик / Клиент (двуколонно)
+    doc.setFontSize(12);
+    doc.text("Доставчик:", 14, 35);
+    doc.text("Клиент:", 110, 35);
+
+    doc.setFontSize(11);
+
+    // Доставчик
+    doc.text(invoice.vendor?.name || "N/A", 14, 42);
+    doc.text(invoice.vendor?.address || "", 14, 48);
+    doc.text("ЕИК: " + (invoice.vendor?.vat_number || "N/A"), 14, 54);
+
+    // Клиент
+    doc.text(invoice.client?.name || "N/A", 110, 42);
+    doc.text(invoice.client?.address || "", 110, 48);
+
+    // Данни за фактурата
+    doc.setFontSize(12);
+    doc.text("Данни за фактурата:", 14, 70);
+
+    doc.setFontSize(11);
+    doc.text("Фактура №: " + (invoice.invoice_number || "N/A"), 14, 78);
+    doc.text("Дата: " + (invoice.date || "N/A"), 14, 84);
+    doc.text("Валута: " + (invoice.currency || "N/A"), 14, 90);
+
+    // Таблица с артикули
+    const items = invoice.items?.map((item, index) => [
+        index + 1,
+        item.description || "",
+        item.quantity || "",
+        item.unit_price || "",
+        item.total || "",
+        item.unit || "",
+        item.tax_group || ""
+    ]) || [];
+
+    doc.autoTable({
+        startY: 105,
+        head: [["№", "Описание", "Количество", "Ед. цена", "Общо", "Мярка", "Дан. група"]],
+        body: items,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [66, 66, 66] }
+    });
+
+    // Тотали
+    let finalY = doc.lastAutoTable.finalY + 10;
+
+    doc.setFontSize(12);
+    doc.text("Обобщение:", 14, finalY);
+
+    doc.setFontSize(11);
+    doc.text("Без ДДС: " + (invoice.totals?.subtotal || 0) + " " + invoice.currency, 14, finalY + 8);
+    doc.text("ДДС (" + (invoice.totals?.vat_rate || 0) + "%): " + (invoice.totals?.vat_amount || 0) + " " + invoice.currency, 14, finalY + 16);
+    doc.text("Общо: " + (invoice.totals?.total || 0) + " " + invoice.currency, 14, finalY + 24);
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+        "Документът е обработен автоматично от екипа на hoseto.cloud",
+        14,
+        285
+    );
+
+    doc.save(`faktura_${invoice.invoice_number || "document"}.pdf`);
+});
+
+
+/* ---------------------------------------------------------
+   📊 EXPORT EXCEL — ПЪЛЕН ФОРМАТ (един sheet)
+--------------------------------------------------------- */
+document.getElementById("exportExcelBtn").addEventListener("click", () => {
+    if (!resultsData) return;
+
+    const invoice = resultsData.extraction.data;
+
+    const sheet = [];
+
+    // Основни данни
+    sheet.push(["Фактура"]);
+    sheet.push(["Фактура №", invoice.invoice_number]);
+    sheet.push(["Дата", invoice.date]);
+    sheet.push(["Валута", invoice.currency]);
+    sheet.push([]);
+
+    // Доставчик
+    sheet.push(["Доставчик"]);
+    sheet.push(["Име", invoice.vendor?.name]);
+    sheet.push(["Адрес", invoice.vendor?.address]);
+    sheet.push(["ЕИК", invoice.vendor?.vat_number]);
+    sheet.push([]);
+
+    // Клиент
+    sheet.push(["Клиент"]);
+    sheet.push(["Име", invoice.client?.name]);
+    sheet.push(["Адрес", invoice.client?.address]);
+    sheet.push([]);
+
+    // Артикули
+    sheet.push(["Артикули"]);
+    sheet.push(["№", "Описание", "Количество", "Ед. цена", "Общо", "Мярка", "Дан. група"]);
+
+    invoice.items?.forEach((item, index) => {
+        sheet.push([
+            index + 1,
+            item.description,
+            item.quantity,
+            item.unit_price,
+            item.total,
+            item.unit || "",
+            item.tax_group || ""
+        ]);
+    });
+
+    sheet.push([]);
+
+    // Тотали
+    sheet.push(["Обобщение"]);
+    sheet.push(["Без ДДС", invoice.totals?.subtotal]);
+    sheet.push(["ДДС", invoice.totals?.vat_amount]);
+    sheet.push(["Общо", invoice.totals?.total]);
+    sheet.push([]);
+
+    // AI метрики
+    sheet.push(["AI Информация"]);
+    sheet.push(["Processing time", resultsData.processing_time_seconds]);
+    sheet.push(["Model", resultsData.extraction.model]);
+    sheet.push(["API cost (USD)", resultsData.extraction.cost_usd?.total]);
+
+    // Генериране
+    const worksheet = XLSX.utils.aoa_to_sheet(sheet);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Invoice");
+
+    XLSX.writeFile(workbook, `faktura_${invoice.invoice_number || "document"}.xlsx`);
+});
+</script>
 </body>
 </html>
