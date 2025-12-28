@@ -339,79 +339,132 @@ async function registerFonts() {
     jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
 }
 
+<script>
+/* ---------------------------------------------------------
+   Зареждане на локални Arimo шрифтове (Regular, Bold, Italic)
+--------------------------------------------------------- */
+
+async function loadFont(url) {
+    const response = await fetch(url);
+    const buffer = await response.arrayBuffer();
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary);
+}
+
+async function registerFonts() {
+    const regular = await loadFont("fonts/Arimo-Regular.ttf");
+    const bold = await loadFont("fonts/Arimo-Bold.ttf");
+    const italic = await loadFont("fonts/Arimo-Italic.ttf");
+
+    jsPDF.API.addFileToVFS("Arimo-Regular.ttf", regular);
+    jsPDF.API.addFont("Arimo-Regular.ttf", "Arimo", "normal");
+
+    jsPDF.API.addFileToVFS("Arimo-Bold.ttf", bold);
+    jsPDF.API.addFont("Arimo-Bold.ttf", "Arimo", "bold");
+
+    jsPDF.API.addFileToVFS("Arimo-Italic.ttf", italic);
+    jsPDF.API.addFont("Arimo-Italic.ttf", "Arimo", "italic");
+}
 
 /* ---------------------------------------------------------
-   📄 EXPORT PDF — ОФИЦИАЛНА ФАКТУРА (двуколонен layout)
+   📄 EXPORT PDF — ОФИЦИАЛНА ФАКТУРА
 --------------------------------------------------------- */
+
 document.getElementById("exportPdfBtn").addEventListener("click", async () => {
-    if (!resultsData) return;
+    if (!resultsData) {
+        alert("Няма данни за PDF.");
+        return;
+    }
 
     await registerFonts();
 
+    const invoice = resultsData.extraction.data;
     const doc = new jsPDF();
 
+    /* Заглавие */
     doc.setFont("Arimo", "bold");
     doc.setFontSize(22);
     doc.text("Фактура", 14, 20);
 
+    /* Основни данни */
     doc.setFont("Arimo", "normal");
     doc.setFontSize(12);
-    doc.text("Фактура №: " + resultsData.extraction.data.invoice_number, 14, 30);
 
-    // таблица
-    const items = resultsData.extraction.data.items.map((item, i) => [
-        i + 1,
-        item.description,
-        item.quantity,
-        item.unit_price,
-        item.total
+    doc.text("Фактура №: " + (invoice.invoice_number || "N/A"), 14, 35);
+    doc.text("Дата: " + (invoice.date || "N/A"), 14, 42);
+
+    /* Доставчик */
+    doc.setFont("Arimo", "bold");
+    doc.text("Доставчик:", 14, 55);
+
+    doc.setFont("Arimo", "normal");
+    doc.text(invoice.vendor?.name || "", 14, 62);
+    doc.text(invoice.vendor?.address || "", 14, 68);
+    doc.text("ЕИК: " + (invoice.vendor?.vat_number || ""), 14, 74);
+
+    /* Клиент */
+    doc.setFont("Arimo", "bold");
+    doc.text("Клиент:", 110, 55);
+
+    doc.setFont("Arimo", "normal");
+    doc.text(invoice.client?.name || "", 110, 62);
+    doc.text(invoice.client?.address || "", 110, 68);
+    doc.text("ЕИК: " + (invoice.client?.vat_number || ""), 110, 74);
+
+    /* Таблица с артикули */
+    const items = (invoice.items || []).map((item, index) => [
+        index + 1,
+        item.description || "",
+        item.quantity || "",
+        item.unit_price || "",
+        item.total || ""
     ]);
 
     doc.autoTable({
-        startY: 40,
+        startY: 90,
         head: [["№", "Описание", "Количество", "Ед. цена", "Общо"]],
         body: items,
-        styles: { font: "Arimo", fontSize: 10 }
+        styles: { font: "Arimo", fontSize: 10 },
+        headStyles: { fillColor: [66, 66, 66], textColor: 255, fontStyle: "bold" }
     });
 
-    doc.save("invoice.pdf");
-});
-
-    // Тотали
-    let finalY = doc.lastAutoTable.finalY + 10;
+    /* Обобщение */
+    let finalY = doc.autoTable.previous.finalY + 10;
 
     doc.setFont("Arimo", "bold");
-    doc.setFontSize(12);
     doc.text("Обобщение:", 14, finalY);
 
     doc.setFont("Arimo", "normal");
-    doc.setFontSize(11);
-    doc.text("Без ДДС: " + (invoice.totals?.subtotal || 0) + " " + invoice.currency, 14, finalY + 8);
-    doc.text("ДДС (" + (invoice.totals?.vat_rate || 0) + "%): " + (invoice.totals?.vat_amount || 0) + " " + invoice.currency, 14, finalY + 16);
-    doc.text("Общо: " + (invoice.totals?.total || 0) + " " + invoice.currency, 14, finalY + 24);
+    doc.text("Без ДДС: " + invoice.totals?.subtotal + " " + invoice.currency, 14, finalY + 8);
+    doc.text("ДДС (" + invoice.totals?.vat_rate + "%): " + invoice.totals?.vat_amount + " " + invoice.currency, 14, finalY + 16);
+    doc.text("Общо: " + invoice.totals?.total + " " + invoice.currency, 14, finalY + 24);
 
-    // Footer
+    /* Footer */
     doc.setFont("Arimo", "italic");
     doc.setFontSize(10);
     doc.setTextColor(120);
-    doc.text(
-        "Документът е обработен автоматично от екипа на hoseto.cloud",
-        14,
-        285
-    );
+    doc.text("Документът е обработен автоматично от hoseto.cloud", 14, 285);
 
     doc.save(`faktura_${invoice.invoice_number || "document"}.pdf`);
 });
 
-
 /* ---------------------------------------------------------
-   📊 EXPORT EXCEL — ПЪЛЕН ФОРМАТ (един sheet)
+   📊 EXPORT EXCEL — ПЪЛЕН ФОРМАТ
 --------------------------------------------------------- */
+
 document.getElementById("exportExcelBtn").addEventListener("click", () => {
-    if (!resultsData) return;
+    if (!resultsData) {
+        alert("Няма данни за Excel.");
+        return;
+    }
 
     const invoice = resultsData.extraction.data;
-
     const sheet = [];
 
     sheet.push(["Фактура"]);
@@ -430,10 +483,11 @@ document.getElementById("exportExcelBtn").addEventListener("click", () => {
     sheet.push(["Клиент"]);
     sheet.push(["Име", invoice.client?.name || ""]);
     sheet.push(["Адрес", invoice.client?.address || ""]);
+    sheet.push(["ЕИК", invoice.client?.vat_number || ""]);
     sheet.push([]);
 
     sheet.push(["Артикули"]);
-    sheet.push(["№", "Описание", "Количество", "Ед. цена", "Общо", "Мярка", "Дан. група"]);
+    sheet.push(["№", "Описание", "Количество", "Ед. цена", "Общо"]);
 
     (invoice.items || []).forEach((item, index) => {
         sheet.push([
@@ -441,24 +495,15 @@ document.getElementById("exportExcelBtn").addEventListener("click", () => {
             item.description || "",
             item.quantity || "",
             item.unit_price || "",
-            item.total || "",
-            item.unit || "",
-            item.tax_group || ""
+            item.total || ""
         ]);
     });
 
     sheet.push([]);
-
     sheet.push(["Обобщение"]);
     sheet.push(["Без ДДС", invoice.totals?.subtotal || ""]);
     sheet.push(["ДДС", invoice.totals?.vat_amount || ""]);
     sheet.push(["Общо", invoice.totals?.total || ""]);
-    sheet.push([]);
-
-    sheet.push(["AI Информация"]);
-    sheet.push(["Processing time", resultsData.processing_time_seconds || ""]);
-    sheet.push(["Model", resultsData.extraction.model || ""]);
-    sheet.push(["API cost (USD)", resultsData.extraction.cost_usd?.total || ""]);
 
     const worksheet = XLSX.utils.aoa_to_sheet(sheet);
     const workbook = XLSX.utils.book_new();
