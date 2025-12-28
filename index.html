@@ -325,9 +325,9 @@ async function loadFont(url) {
 
 // Регистрира трите шрифта в jsPDF
 async function registerFonts() {
-    const regular = await loadFont("/fonts/Arimo-Regular.ttf");
-    const bold = await loadFont("/fonts/Arimo-Bold.ttf");
-    const italic = await loadFont("/fonts/Arimo-Italic.ttf");
+    const regular = await loadFont("fonts/Arimo-Regular.ttf");
+    const bold = await loadFont("fonts/Arimo-Bold.ttf");
+    const italic = await loadFont("fonts/Arimo-Italic.ttf");
 
     const api = window.jspdf.jsPDF.API;
 
