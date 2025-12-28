@@ -1,40 +1,287 @@
 <!DOCTYPE html>
-<html>
+<html lang="bg">
 <head>
-  <meta charset="UTF-8">
-  <title>DocAI</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocAI - Document Processing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .uploading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-gray-800 mb-2">DocAI</h1>
+            <p class="text-xl text-gray-600">AI-Powered Document Processing</p>
+        </div>
 
-<h1>Качи документ</h1>
+        <!-- Upload Section -->
+        <div id="uploadSection" class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <div class="border-4 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-500 transition-colors cursor-pointer" id="dropZone">
+                    <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="text-xl text-gray-700 mb-2">Drag & Drop фактура тук</p>
+                    <p class="text-gray-500 mb-4">или</p>
+                    <label for="fileInput" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 cursor-pointer inline-block transition-colors">
+                        Избери файл
+                    </label>
+                    <input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png">
+                    <p class="text-sm text-gray-500 mt-4">Supported: PDF, JPG, PNG • Max: 10MB</p>
+                </div>
 
-<input type="file" id="fileInput">
-<button onclick="upload()">Качи</button>
+                <div id="selectedFile" class="mt-4 hidden">
+                    <p class="text-gray-700">Избран файл: <span id="fileName" class="font-semibold"></span></p>
+                    <button id="uploadBtn" class="w-full mt-4 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors text-lg font-semibold">
+                        🚀 Обработи документа
+                    </button>
+                </div>
+            </div>
+        </div>
 
-<pre id="result"></pre>
+        <!-- Processing Section -->
+        <div id="processingSection" class="max-w-2xl mx-auto hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                <div class="uploading">
+                    <svg class="mx-auto h-16 w-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </div>
+                <p class="text-xl text-gray-700 mt-4">Обработва се документ...</p>
+                <p class="text-gray-500 mt-2">Това може да отнеме 10-15 секунди</p>
+            </div>
+        </div>
 
-<script>
-const API_URL = "https://docai.hoseto.cloud";
+        <!-- Results Section -->
+        <div id="resultsSection" class="max-w-4xl mx-auto hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-3xl font-bold text-green-600">✅ Успешно обработен</h2>
+                    <button id="newDocBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        Нов документ
+                    </button>
+                </div>
 
-async function upload() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) {
-        alert("Избери файл");
-        return;
-    }
+                <div id="resultsContent" class="space-y-4">
+                    <!-- Results will be inserted here -->
+                </div>
 
-    const formData = new FormData();
-    formData.append("file", file);
+                <div class="mt-6 flex gap-4">
+                    <button id="downloadJsonBtn" class="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                        📥 Download JSON
+                    </button>
+                    <button id="copyDataBtn" class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                        📋 Copy Data
+                    </button>
+                </div>
+            </div>
+        </div>
 
-    const res = await fetch(`${API_URL}/api/v1/documents/upload`, {
-        method: "POST",
-        body: formData
-    });
+        <!-- Error Section -->
+        <div id="errorSection" class="max-w-2xl mx-auto hidden">
+            <div class="bg-red-50 border-2 border-red-200 rounded-2xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-red-600 mb-4">❌ Грешка</h2>
+                <p id="errorMessage" class="text-gray-700"></p>
+                <button id="retryBtn" class="mt-4 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700">
+                    Опитай отново
+                </button>
+            </div>
+        </div>
+    </div>
 
-    const data = await res.json();
-    document.getElementById("result").textContent = JSON.stringify(data, null, 2);
-}
-</script>
+    <script>
+        let selectedFile = null;
+        let resultsData = null;
 
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFileDiv = document.getElementById('selectedFile');
+        const fileNameSpan = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadSection = document.getElementById('uploadSection');
+        const processingSection = document.getElementById('processingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const errorSection = document.getElementById('errorSection');
+        const resultsContent = document.getElementById('resultsContent');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            const file = e.dataTransfer.files[0];
+            handleFileSelect(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFileSelect(file);
+        });
+
+        function handleFileSelect(file) {
+            if (!file) return;
+
+            const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+            if (!validTypes.includes(file.type)) {
+                alert('Моля изберете PDF, JPG или PNG файл');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Файлът е твърде голям (макс 10MB)');
+                return;
+            }
+
+            selectedFile = file;
+            fileNameSpan.textContent = file.name;
+            selectedFileDiv.classList.remove('hidden');
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            uploadSection.classList.add('hidden');
+            processingSection.classList.remove('hidden');
+            errorSection.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/api/v1/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                // Fixed error handling
+                if (data.status === 'success' && data.extraction && data.extraction.success) {
+                    showResults(data);
+                } else {
+                    const errorMsg = (data.extraction && data.extraction.error) 
+                        ? data.extraction.error 
+                        : 'Грешка при обработка на документа';
+                    showError(errorMsg);
+                }
+            } catch (error) {
+                showError('Грешка при свързване със сървъра: ' + error.message);
+            }
+        });
+
+        function showResults(data) {
+            processingSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+            resultsData = data;
+
+            const invoice = data.extraction.data;
+
+            resultsContent.innerHTML = `
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600">Фактура №</p>
+                        <p class="text-xl font-bold">${invoice.invoice_number || 'N/A'}</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600">Дата</p>
+                        <p class="text-xl font-bold">${invoice.date || 'N/A'}</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600 font-semibold mb-2">Доставчик</p>
+                    <p class="font-bold">${invoice.vendor?.name || 'N/A'}</p>
+                    <p class="text-sm">${invoice.vendor?.address || ''}</p>
+                    <p class="text-sm">ЕИК: ${invoice.vendor?.vat_number || 'N/A'}</p>
+                </div>
+
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600 font-semibold mb-2">Клиент</p>
+                    <p class="font-bold">${invoice.client?.name || 'N/A'}</p>
+                    <p class="text-sm">${invoice.client?.address || ''}</p>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600 font-semibold mb-2">Артикули (${invoice.items?.length || 0})</p>
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        ${invoice.items?.map(item => `
+                            <div class="text-sm border-b pb-2">
+                                <p class="font-semibold">${item.description}</p>
+                                <p class="text-gray-600">${item.quantity} x ${item.unit_price} = ${item.total} ${invoice.currency}</p>
+                            </div>
+                        `).join('') || '<p class="text-gray-500">Няма артикули</p>'}
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 p-6 rounded-lg border-2 border-yellow-200">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-sm text-gray-600">Без ДДС</p>
+                            <p class="text-lg">${invoice.totals?.subtotal || 0} ${invoice.currency}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">ДДС (${invoice.totals?.vat_rate || 0}%)</p>
+                            <p class="text-lg">${invoice.totals?.vat_amount || 0} ${invoice.currency}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 font-semibold">ОБЩО</p>
+                            <p class="text-3xl font-bold text-green-600">${invoice.totals?.total || 0} ${invoice.currency}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
+                    <p>⏱️ Processing time: ${data.processing_time_seconds}s</p>
+                    <p>💰 API cost: $${data.extraction.cost_usd?.total?.toFixed(4) || 'N/A'}</p>
+                    <p>🤖 Model: ${data.extraction.model}</p>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            processingSection.classList.add('hidden');
+            errorSection.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
+
+        document.getElementById('newDocBtn').addEventListener('click', reset);
+        document.getElementById('retryBtn').addEventListener('click', reset);
+
+        document.getElementById('downloadJsonBtn').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(resultsData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoice_${resultsData.extraction.data.invoice_number || 'result'}.json`;
+            a.click();
+        });
+
+        document.getElementById('copyDataBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(JSON.stringify(resultsData.extraction.data, null, 2));
+            alert('Данните са копирани!');
+        });
+
+        function reset() {
+            selectedFile = null;
+            fileInput.value = '';
+            selectedFileDiv.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+            processingSection.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            errorSection.classList.add('hidden');
+        }
+    </script>
 </body>
 </html>
