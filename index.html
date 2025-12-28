@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DocAI - Document Processing</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- jsPDF за PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- pdfmake за PDF generation с пълна кирилица поддръжка -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <!-- SheetJS за Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -278,135 +279,126 @@
             errorMessage.textContent = message;
         }
 
-        // Cyrillic to Latin transliteration
-        function transliterate(text) {
-            if (!text) return '';
-            
-            const map = {
-                'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ж': 'Zh',
-                'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M', 'Н': 'N',
-                'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U', 'Ф': 'F',
-                'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sht', 'Ъ': 'A', 'Ь': 'Y',
-                'Ю': 'Yu', 'Я': 'Ya',
-                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ж': 'zh',
-                'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n',
-                'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f',
-                'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sht', 'ъ': 'a', 'ь': 'y',
-                'ю': 'yu', 'я': 'ya'
-            };
-            
-            return text.split('').map(char => map[char] || char).join('');
-        }
-
-        // PDF Export with transliteration
+        // PDF Export with pdfmake (full Cyrillic support)
         document.getElementById('downloadPdfBtn').addEventListener('click', () => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
             const invoice = resultsData.extraction.data;
             
-            // Header
-            doc.setFontSize(24);
-            doc.setFont('helvetica', 'bold');
-            doc.text('FAKTURA', 105, 20, { align: 'center' });
+            const docDefinition = {
+                content: [
+                    { text: 'ФАКТУРА', style: 'header', alignment: 'center' },
+                    { text: `№ ${invoice.invoice_number || 'N/A'}`, style: 'subheader', alignment: 'center' },
+                    { text: `Дата: ${invoice.date || 'N/A'}`, style: 'subheader', alignment: 'center', margin: [0, 0, 0, 20] },
+                    
+                    {
+                        columns: [
+                            {
+                                width: '50%',
+                                stack: [
+                                    { text: 'ДОСТАВЧИК', style: 'sectionHeader' },
+                                    { text: invoice.vendor?.name || 'N/A', bold: true, margin: [0, 5, 0, 3] },
+                                    { text: invoice.vendor?.address || '', margin: [0, 0, 0, 3] },
+                                    { text: `ЕИК: ${invoice.vendor?.vat_number || 'N/A'}`, margin: [0, 0, 0, 3] },
+                                    invoice.vendor?.phone ? { text: `Тел: ${invoice.vendor.phone}`, margin: [0, 0, 0, 3] } : {},
+                                    invoice.vendor?.email ? { text: `Email: ${invoice.vendor.email}` } : {}
+                                ]
+                            },
+                            {
+                                width: '50%',
+                                stack: [
+                                    { text: 'КЛИЕНТ', style: 'sectionHeader' },
+                                    { text: invoice.client?.name || 'N/A', bold: true, margin: [0, 5, 0, 3] },
+                                    { text: invoice.client?.address || '', margin: [0, 0, 0, 3] },
+                                    invoice.client?.vat_number ? { text: `ЕИК: ${invoice.client.vat_number}` } : {}
+                                ]
+                            }
+                        ],
+                        margin: [0, 0, 0, 20]
+                    },
+                    
+                    { text: `Валута: ${invoice.currency || 'BGN'}`, margin: [0, 0, 0, 15], fontSize: 10 },
+                    
+                    { text: 'АРТИКУЛИ', style: 'sectionHeader', margin: [0, 10, 0, 10] },
+                    
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: ['*', 'auto', 'auto', 'auto'],
+                            body: [
+                                [
+                                    { text: 'Описание', style: 'tableHeader' },
+                                    { text: 'Кол.', style: 'tableHeader', alignment: 'center' },
+                                    { text: 'Цена', style: 'tableHeader', alignment: 'right' },
+                                    { text: 'Сума', style: 'tableHeader', alignment: 'right' }
+                                ],
+                                ...(invoice.items || []).map(item => [
+                                    { text: item.description, fontSize: 9 },
+                                    { text: item.quantity.toString(), alignment: 'center', fontSize: 9 },
+                                    { text: item.unit_price.toFixed(2), alignment: 'right', fontSize: 9 },
+                                    { text: item.total.toFixed(2), alignment: 'right', fontSize: 9 }
+                                ])
+                            ]
+                        },
+                        layout: {
+                            hLineWidth: function (i, node) {
+                                return (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5;
+                            },
+                            vLineWidth: function () { return 0; },
+                            hLineColor: function (i) {
+                                return i === 1 ? '#000000' : '#cccccc';
+                            }
+                        },
+                        margin: [0, 0, 0, 20]
+                    },
+                    
+                    {
+                        columns: [
+                            { width: '*', text: '' },
+                            {
+                                width: 'auto',
+                                table: {
+                                    body: [
+                                        [
+                                            { text: 'Без ДДС:', alignment: 'right', border: [false, false, false, false] },
+                                            { text: `${(invoice.totals?.subtotal || 0).toFixed(2)} ${invoice.currency}`, alignment: 'right', border: [false, false, false, false], margin: [10, 0, 0, 0] }
+                                        ],
+                                        [
+                                            { text: `ДДС (${invoice.totals?.vat_rate || 0}%):`, alignment: 'right', border: [false, false, false, false] },
+                                            { text: `${(invoice.totals?.vat_amount || 0).toFixed(2)} ${invoice.currency}`, alignment: 'right', border: [false, false, false, false], margin: [10, 0, 0, 0] }
+                                        ],
+                                        [
+                                            { text: 'ОБЩО:', bold: true, fontSize: 12, alignment: 'right', border: [false, true, false, false], borderColor: ['', '#000000', '', ''], margin: [0, 5, 0, 0] },
+                                            { text: `${(invoice.totals?.total || 0).toFixed(2)} ${invoice.currency}`, bold: true, fontSize: 14, alignment: 'right', border: [false, true, false, false], borderColor: ['', '#000000', '', ''], margin: [10, 5, 0, 0] }
+                                        ]
+                                    ]
+                                },
+                                layout: 'noBorders'
+                            }
+                        ]
+                    },
+                    
+                    invoice.payment_terms ? { text: `Условия за плащане: ${invoice.payment_terms}`, margin: [0, 20, 0, 0], fontSize: 9 } : {},
+                    invoice.notes ? { text: `Забележки: ${invoice.notes}`, margin: [0, 10, 0, 0], fontSize: 9, italics: true } : {},
+                    
+                    { text: 'Документът е обработен автоматично от екипа на hoseto.cloud', style: 'footer', margin: [0, 40, 0, 0] }
+                ],
+                styles: {
+                    header: { fontSize: 24, bold: true, margin: [0, 0, 0, 5] },
+                    subheader: { fontSize: 12, margin: [0, 0, 0, 3] },
+                    sectionHeader: { fontSize: 11, bold: true, margin: [0, 5, 0, 5], color: '#1e40af' },
+                    tableHeader: { bold: true, fontSize: 10, fillColor: '#e5e7eb', color: '#000000' },
+                    footer: { fontSize: 8, italics: true, alignment: 'center', color: '#6b7280' }
+                },
+                defaultStyle: {
+                    font: 'Roboto',
+                    fontSize: 10
+                },
+                pageMargins: [40, 60, 40, 60]
+            };
             
-            // Subtitle
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`No: ${invoice.invoice_number || 'N/A'}`, 105, 30, { align: 'center' });
-            doc.text(`Date: ${invoice.date || 'N/A'}`, 105, 37, { align: 'center' });
-            
-            const leftX = 20;
-            const rightX = 110;
-            let y = 50;
-            
-            // Left column - Vendor
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text('DOSTAVCHIK:', leftX, y);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            y += 7;
-            
-            const vendorName = transliterate(invoice.vendor?.name || 'N/A');
-            const vendorAddress = transliterate(invoice.vendor?.address || '');
-            
-            doc.text(vendorName, leftX, y, { maxWidth: 80 });
-            y += 5;
-            doc.text(vendorAddress, leftX, y, { maxWidth: 80 });
-            y += 5;
-            doc.text(`EIK: ${invoice.vendor?.vat_number || 'N/A'}`, leftX, y);
-            if (invoice.vendor?.phone) {
-                y += 5;
-                doc.text(`Tel: ${invoice.vendor.phone}`, leftX, y);
-            }
-            
-            // Right column - Client
-            y = 50;
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text('KLIENT:', rightX, y);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            y += 7;
-            
-            const clientName = transliterate(invoice.client?.name || 'N/A');
-            const clientAddress = transliterate(invoice.client?.address || '');
-            
-            doc.text(clientName, rightX, y, { maxWidth: 80 });
-            y += 5;
-            doc.text(clientAddress, rightX, y, { maxWidth: 80 });
-            
-            // Items table
-            y = 90;
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text('ARTIKULI', leftX, y);
-            y += 7;
-            
-            doc.setFontSize(9);
-            doc.text('Description', leftX, y);
-            doc.text('Qty', leftX + 100, y);
-            doc.text('Price', leftX + 120, y);
-            doc.text('Total', leftX + 145, y);
-            y += 2;
-            doc.line(leftX, y, 190, y);
-            y += 5;
-            
-            doc.setFont('helvetica', 'normal');
-            invoice.items?.forEach(item => {
-                if (y > 250) {
-                    doc.addPage();
-                    y = 20;
-                }
-                const desc = transliterate(item.description).substring(0, 50);
-                doc.text(desc, leftX, y);
-                doc.text(String(item.quantity), leftX + 100, y);
-                doc.text(item.unit_price.toFixed(2), leftX + 120, y);
-                doc.text(item.total.toFixed(2), leftX + 145, y);
-                y += 6;
-            });
-            
-            // Totals
-            y += 10;
-            doc.line(leftX, y, 190, y);
-            y += 7;
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Subtotal: ${invoice.totals?.subtotal || 0} ${invoice.currency}`, leftX + 100, y);
-            y += 6;
-            doc.text(`VAT (${invoice.totals?.vat_rate || 0}%): ${invoice.totals?.vat_amount || 0} ${invoice.currency}`, leftX + 100, y);
-            y += 6;
-            doc.setFontSize(12);
-            doc.text(`TOTAL: ${invoice.totals?.total || 0} ${invoice.currency}`, leftX + 100, y);
-            
-            // Footer
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'italic');
-            doc.text('Processed automatically by hoseto.cloud team', 105, 280, { align: 'center' });
-            
-            doc.save(`invoice_${invoice.invoice_number || 'export'}.pdf`);
+            pdfMake.createPdf(docDefinition).download(`faktura_${invoice.invoice_number || 'export'}.pdf`);
         });
 
-        // Excel Export
+        // Excel Export (full Cyrillic support)
         document.getElementById('downloadExcelBtn').addEventListener('click', () => {
             const invoice = resultsData.extraction.data;
             const data = resultsData;
@@ -436,7 +428,7 @@
                 ['Описание', 'Количество', 'Единична цена', 'Обща сума']
             ];
             
-            invoice.items?.forEach(item => {
+            (invoice.items || []).forEach(item => {
                 wsData.push([item.description, item.quantity, item.unit_price, item.total]);
             });
             
@@ -452,10 +444,10 @@
             wsData.push(['Tokens used', data.extraction.tokens_used?.total || 'N/A']);
             
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+            ws['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
             
             XLSX.utils.book_append_sheet(wb, ws, 'Фактура');
-            XLSX.writeFile(wb, `invoice_${invoice.invoice_number || 'export'}.xlsx`);
+            XLSX.writeFile(wb, `faktura_${invoice.invoice_number || 'export'}.xlsx`);
         });
 
         // JSON Download
